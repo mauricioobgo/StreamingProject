@@ -1,0 +1,11 @@
+version: '3'
+services:
+  jupyter:
+    build: .
+    ports:
+      - "8888:8888"
+      - "4040:4040"
+    environment:
+      - SPARK_OPTS=--master spark://spark-master:7077
+      - JUPYTER_TOKEN='DarthVader'
+    

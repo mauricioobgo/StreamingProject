@@ -1,46 +1,102 @@
 # Spark Cluster with Kafka, Zookeeper, and Jupyter
 
-## Overview
+A distributed streaming environment built with Docker Compose, combining Apache Spark, Kafka, Zookeeper, and Jupyter for interactive data processing.
 
-This project sets up a distributed computing environment using Docker Compose, incorporating Apache Spark as the primary data processing engine. The Spark cluster includes a master node (`spark-master`) and two worker nodes (`spark-worker-1` and `spark-worker-2`). Additionally, the environment includes Kafka as a distributed message broker (`kafka`), Zookeeper for distributed coordination and configuration management (`zookeeper`), and a Jupyter notebook server (`jupyter`) for interactive data analysis with Spark.
+## Architecture
+
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│  Jupyter     │────▶│ Spark Master  │────▶│  Kafka      │
+│  (port 8888) │     │  (port 8080)  │     │ (port 9092) │
+└─────────────┘     ├──────────────┤     └──────┬──────┘
+                    │ Spark Worker  │            │
+                    │  (port 8081)  │            │
+                    ├──────────────┤     ┌──────▼──────┐
+                    │ Spark Worker  │     │ Zookeeper   │
+                    │  (port 8082)  │     │(port 2181)  │
+                    └──────────────┘     └─────────────┘
+```
 
 ## Components
 
-### 1. Spark Master (`spark-master`)
+| Service | Image | Port | Description |
+|---------|-------|------|-------------|
+| **spark-master** | `bitnami/spark:3.3.0` | `8080` | Spark cluster coordinator (standalone mode) |
+| **spark-worker-1** | `bitnami/spark:3.3.0` | `8081` | Spark worker (1 core, 1 GB memory) |
+| **spark-worker-2** | `bitnami/spark:3.3.0` | `8082` | Spark worker (1 core, 1 GB memory) |
+| **zookeeper** | `bitnami/zookeeper:latest` | `2181` | Distributed coordination service |
+| **kafka** | `bitnami/kafka:latest` | `9092` | Distributed streaming platform |
+| **jupyter** | Custom (`notebooks/Dockerfile`) | `8888` | Interactive notebook server with PySpark |
 
-The Spark master node serves as the central coordinator for the Spark cluster. It is configured to operate in standalone mode and provides a web UI accessible at `http://localhost:8080`. This UI allows monitoring of the Spark cluster and its applications.
+## Quick Start
 
-### 2. Spark Workers (`spark-worker-1` and `spark-worker-2`)
+### Prerequisites
 
-The Spark worker nodes are responsible for executing tasks assigned by the Spark master. Each worker node is configured to allocate 1 core and 1GB of memory for Spark processing. These worker nodes communicate with the Spark master to receive task assignments.
+- [Docker](https://docs.docker.com/get-docker/)
+- [Docker Compose](https://docs.docker.com/compose/install/) (v2+)
 
-### 3. Zookeeper (`zookeeper`)
-
-Zookeeper is a distributed coordination service that plays a crucial role in distributed systems. In this setup, it is utilized for managing configuration information across the Spark and Kafka components.
-
-### 4. Kafka (`kafka`)
-
-Kafka is a distributed streaming platform that facilitates the building of real-time data pipelines and streaming applications. In this project, Kafka is configured with a broker ID of 1 and listens on port 9092. It connects to Zookeeper for distributed coordination.
-
-### 5. Jupyter (`jupyter`)
-
-The Jupyter notebook server is used for interactive data analysis and visualization. It is configured to connect to the Spark cluster with the master URL set to `spark://spark-master:7077`. The Jupyter notebook is accessible at `http://localhost:8888`, and the token for authentication is set to 'DarthVader'.
-
-## Usage
-
-To run the entire environment, execute the following command in the directory containing the `docker-compose.yml` file:
+### 1. Configure environment variables
 
 ```bash
-docker-compose up
-
+cp .env.example .env
+# Edit .env to customize tokens and settings
 ```
 
-Once the services are up and running, you can access the Spark master web UI at 
-http://localhost:8080 and the Jupyter notebook at http://localhost:8888.
+### 2. Start all services
 
-## Dependencies
-- Docker
-- Docker Compose
+```bash
+docker compose up -d
+```
 
-Notes
-Ensure that the necessary Docker images are available locally. The provided configuration pulls images from Docker Hub.
+### 3. Access the services
+
+| Service | URL |
+|---------|-----|
+| Spark Master UI | http://localhost:8080 |
+| Jupyter Notebook | http://localhost:8888 |
+
+The Jupyter token is configured via the `JUPYTER_TOKEN` variable in `.env` (default: `DarthVader`).
+
+### 4. Stop all services
+
+```bash
+docker compose down
+```
+
+## Configuration
+
+Environment variables can be set in a `.env` file at the project root. See [`.env.example`](.env.example) for all available options.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `JUPYTER_TOKEN` | `DarthVader` | Jupyter authentication token |
+| `KAFKA_ADVERTISED_LISTENERS` | `PLAINTEXT://kafka:9092` | Kafka advertised listener address |
+| `ALLOW_ANONYMOUS_LOGIN` | `yes` | Allow anonymous Zookeeper login (**set to `no` in production**) |
+| `ALLOW_PLAINTEXT_LISTENER` | `yes` | Allow non-TLS Kafka listeners (**set to `no` in production**) |
+
+## Project Structure
+
+```
+.
+├── docker-compose.yml        # Main orchestration file
+├── notebooks/
+│   ├── Dockerfile            # Jupyter + PySpark image
+│   └── docker-compose.yml   # Standalone Jupyter setup
+├── spark-streaming/
+│   ├── Dockerfile            # Spark streaming image
+│   └── docker-compose.yml   # Standalone streaming setup
+├── requirements.txt          # Python dependencies
+├── .env.example              # Environment variable template
+└── .editorconfig             # Editor formatting rules
+```
+
+## Security Notes
+
+- **Zookeeper** is configured with `ALLOW_ANONYMOUS_LOGIN=yes` — change to `no` before exposing publicly.
+- **Kafka** uses plaintext listeners — enable TLS for production deployments.
+- **Jupyter token** should be changed from the default in any shared environment.
+- **Spark master** runs as `root` user inside the container; consider restricting this for production.
+
+## License
+
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.

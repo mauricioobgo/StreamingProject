@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  lint:
+    name: Lint Dockerfiles & Compose
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install hadolint
+        run: |
+          curl -sL https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64 -o /usr/local/bin/hadolint
+          chmod +x /usr/local/bin/hadolint
+
+      - name: Lint Dockerfiles
+        run: |
+          hadolint notebooks/Dockerfile
+          hadolint spark-streaming/Dockerfile
+
+      - name: Validate docker-compose files
+        run: |
+          docker compose -f docker-compose.yml config --quiet
+          docker compose -f spark-streaming/docker-compose.yml config --quiet
+          docker compose -f notebooks/docker-compose.yml config --quiet
